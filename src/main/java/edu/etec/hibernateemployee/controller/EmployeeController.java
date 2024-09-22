@@ -5,7 +5,6 @@ import edu.etec.hibernateemployee.model.request.EmployeeRequest;
 import edu.etec.hibernateemployee.model.response.EmployeeResponse;
 import edu.etec.hibernateemployee.service.EmployeeService;
 import lombok.AllArgsConstructor;
-import org.hibernate.boot.archive.scan.internal.ScanResultImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +14,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -77,7 +75,7 @@ public class EmployeeController {
         EmployeeResponse employeeResponse;
         try{
             Random rand = new Random();
-            String fileName = rand.nextInt(999999)+"_"+employeeRequest.getProfile().getOriginalFilename();
+            String fileName = rand.nextInt(1,999999)+"_"+employeeRequest.getProfile().getOriginalFilename();
             Files.copy(employeeRequest.getProfile().getInputStream(), Paths.get(path_dir + fileName));
             Employee emp = new Employee();
             emp.setName(employeeRequest.getName());
@@ -102,5 +100,75 @@ public class EmployeeController {
                 .message("add Success")
                     .build();
         return new ResponseEntity<>(employeeResponse, HttpStatusCode.valueOf(201));
+    }
+
+    @PostMapping("/update/{id}")
+    public ResponseEntity<EmployeeResponse<Object>> updateEmployee(@ModelAttribute EmployeeRequest employeeRequest, @PathVariable int id) {
+        String path_dir = "public/Profile/";
+        try{
+            Employee employee = employeeService.getEmployeeById(id);
+            try{
+                String fileName;
+                if(!(employeeRequest.getProfile().getOriginalFilename().isEmpty())){
+                    Random rand = new Random();
+                    fileName = rand.nextInt(1,999999)+"_"+employeeRequest.getProfile().getOriginalFilename();
+                    Files.copy(employeeRequest.getProfile().getInputStream(), Paths.get(path_dir + fileName));
+                }
+                else{
+                    fileName = employee.getProfile();//get old profile
+                }
+                employee.setName(employeeRequest.getName());
+                employee.setGender(employeeRequest.getGender());
+                employee.setSalary(employeeRequest.getSalary());
+                employee.setProfile(fileName);
+                employeeService.updateEmployee(employee);
+                EmployeeResponse employeeResponse = EmployeeResponse.builder()
+                        .timestamp(new Timestamp(System.currentTimeMillis()))
+                        .status(HttpStatus.OK)
+                        .message("update Success")
+                        .build();
+                return new ResponseEntity<>(employeeResponse, HttpStatusCode.valueOf(200));
+
+            }
+            catch (Exception e){
+                e.printStackTrace();
+                EmployeeResponse employeeResponse = EmployeeResponse.builder()
+                        .message(e.getMessage())
+                        .status(HttpStatus.valueOf(400))
+                        .timestamp(new Timestamp(System.currentTimeMillis()))
+                        .build();
+                return new ResponseEntity<>(employeeResponse, HttpStatusCode.valueOf(400));
+            }
+        }
+        catch (Exception e){
+            EmployeeResponse<Object> employeeResponse = EmployeeResponse.builder()
+                    .timestamp(new Timestamp(System.currentTimeMillis()))
+                    .status(HttpStatus.NOT_FOUND)
+                    .message("id not found")
+                    .build();
+            return new ResponseEntity<>(employeeResponse, HttpStatusCode.valueOf(404));
+        }
+    }
+
+    @PostMapping("/delete/{id}")
+    public ResponseEntity<EmployeeResponse> deleteEmployee(@PathVariable int id){
+        try{
+            Employee employee = employeeService.getEmployeeById(id);
+        }
+        catch (Exception e){
+            EmployeeResponse<Object> employeeResponse = EmployeeResponse.builder()
+                    .timestamp(new Timestamp(System.currentTimeMillis()))
+                    .status(HttpStatus.NOT_FOUND)
+                    .message("id not found")
+                    .build();
+            return new ResponseEntity<>(employeeResponse, HttpStatusCode.valueOf(404));
+        }
+        employeeService.deleteEmployee(id);
+        EmployeeResponse employeeResponse = EmployeeResponse.builder()
+                .timestamp(new Timestamp(System.currentTimeMillis()))
+                .status(HttpStatus.OK)
+                .message("delete Success")
+                .build();
+        return new ResponseEntity<>(employeeResponse, HttpStatusCode.valueOf(200));
     }
 }
